@@ -1,71 +1,95 @@
-FROM python:3.9-buster as base
+FROM python:3.9-buster AS base
 
-ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get -qq update
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
-RUN apt-get -qq install dialog apt-utils -y
-RUN apt-get install apt-transport-https -y
-RUN apt-get install libseccomp-dev seccomp -y
-RUN apt-get install software-properties-common dirmngr -y
-RUN apt-get update
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-key '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7'
-# RUN wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
-# RUN add-apt-repository "deb https://cloud.r-project.org/bin/linux/debian $(env -i bash -c '. /etc/os-release; echo $VERSION_CODENAME')-cran40/" -y
-# RUN add-apt-repository "deb http://cloud.r-project.org/bin/linux/debian buster-cran35/" -y
-RUN apt-get  update
+ENV DEBIAN_FRONTEND=noninteractive \
+    CRAN_MIRROR=https://cloud.r-project.org
 
-RUN apt-get install r-base r-base-dev -y --allow-unauthenticated
-RUN apt-get install libssl-dev -y
-RUN apt-get install libgmp3-dev  -y --allow-unauthenticated
-RUN apt-get install git -y
-RUN apt-get install build-essential  -y --allow-unauthenticated
-RUN apt-get install libv8-dev  -y --allow-unauthenticated
-RUN apt-get install libcurl4-openssl-dev -y --allow-unauthenticated
-RUN apt-get install libgsl-dev -y
-RUN apt-get install libxml2-dev -y --allow-unauthenticated
-RUN apt-get install libharfbuzz-dev libfribidi-dev libfontconfig1-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev -y --allow-unauthenticated
+# Configurar repositórios para Debian oldstable
+RUN echo "deb http://archive.debian.org/debian/ buster main" > /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian-security/ buster/updates main" >> /etc/apt/sources.list && \
+    echo "Acquire::Check-Valid-Until \"false\";" > /etc/apt/apt.conf.d/10no-check-valid-until
 
+# Instalar dependências do sistema em uma única camada
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    dirmngr \
+    apt-transport-https \
+    libseccomp-dev \
+    seccomp \
+    libssl-dev \
+    libgmp3-dev \
+    git \
+    build-essential \
+    libv8-dev \
+    libcurl4-openssl-dev \
+    libgsl-dev \
+    libxml2-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libtiff5-dev \
+    libjpeg-dev \
+    graphviz \
+    tzdata \
+    dialog \
+    apt-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configurar repositório R
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7 && \
+    add-apt-repository "deb $CRAN_MIRROR/bin/linux/debian buster-cran40/" && \
+    apt-get update && \
+    apt-get install -y --allow-unauthenticated --no-install-recommends r-base
+
+# Configurar permissões do R
 RUN chmod -R 777 /usr/local/lib/R/
-RUN Rscript --vanilla -e 'install.packages(c("usethis", "shiny"), repos="http://cran.irsn.fr", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages(c("Rcpp"), repos="http://cran.irsn.fr", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages(c("V8"), repos="http://cran.irsn.fr", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages(c("sfsmisc"), repos="http://cran.irsn.fr", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages(c("clue"), repos="http://cran.irsn.fr", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages("https://cran.irsn.fr/src/contrib/Archive/randomForest/randomForest_4.6-14.tar.gz", repos=NULL, type="source", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages(c("lattice"), repos="http://cran.irsn.fr", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages(c("devtools"), repos="http://cran.irsn.fr", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages(c("MASS"), repos="http://cran.irsn.fr", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages("BiocManager", repos="http://cran.irsn.fr", Ncpus=8)'
-RUN Rscript --vanilla -e 'BiocManager::install(c("igraph"), Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages("https://cran.irsn.fr/src/contrib/Archive/fastICA/fastICA_1.2-2.tar.gz", repos=NULL, type="source", Ncpus=8)'
-RUN Rscript --vanilla -e 'BiocManager::install(c("bnlearn", "pcalg", "kpcalg", "glmnet", "mboost"), Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages("https://cran.irsn.fr/src/contrib/Archive/SID/SID_1.0.tar.gz", repos=NULL, type="source", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages("https://cran.irsn.fr/src/contrib/Archive/CAM/CAM_1.0.tar.gz", repos=NULL, type="source", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages("https://cran.irsn.fr/src/contrib/sparsebnUtils_0.0.8.tar.gz", repos=NULL, type="source", Ncpus=8)'
-RUN Rscript --vanilla -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/ccdrAlgorithm/ccdrAlgorithm_0.0.6.tar.gz", repos=NULL, type="source", Ncpus=8)'
-RUN Rscript --vanilla -e 'BiocManager::install(c("discretecdAlgorithm"), Ncpus=8)'
 
-RUN apt-get -y install libcurl4-openssl-dev libssl-dev libfontconfig1-dev libxml2-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev r-cran-devtools
-RUN Rscript --vanilla -e 'library(devtools); install_github("cran/CAM"); install_github("cran/momentchi2"); install_github("Diviyan-Kalainathan/RCIT")'
-RUN Rscript --vanilla -e 'install.packages("https://cran.irsn.fr/src/contrib/Archive/sparsebn/sparsebn_0.1.2.tar.gz", repos=NULL, type="source", Ncpus=8)'
+# Instalar pacotes R básicos
+RUN Rscript --vanilla -e 'install.packages(c("usethis", "shiny", "Rcpp", "V8", "sfsmisc", "clue", "lattice", "devtools", "MASS", "BiocManager"), repos="'$CRAN_MIRROR'", Ncpus=4)'
 
+# Instalar pacotes R específicos do Bioconductor
+RUN Rscript --vanilla -e 'BiocManager::install(c("igraph", "D2C", "pcalg", "glmnet", "mboost"), Ncpus=4, ask=FALSE)'
 
-# Custom below
-RUN apt-get install graphviz -y
-# RUN curl -sSL https://install.python-poetry.org | python3 -
-RUN pip install poetry cmake
+# Instalar pacotes R do CRAN
+RUN Rscript --vanilla -e 'install.packages(c("bnlearn", "CAM", "SID", "kpcalg", "remotes"), repos="'$CRAN_MIRROR'", Ncpus=4)'
 
-RUN mkdir -p /app
+# Instalar pacotes R de arquivos específicos (um por um para melhor debug)
+RUN Rscript --vanilla -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/randomForest/randomForest_4.6-14.tar.gz", repos=NULL, type="source")'
+RUN Rscript --vanilla -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/fastICA/fastICA_1.2-2.tar.gz", repos=NULL, type="source")'
+RUN Rscript --vanilla -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/SID/SID_1.0.tar.gz", repos=NULL, type="source")'
+RUN Rscript --vanilla -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/CAM/CAM_1.0.tar.gz", repos=NULL, type="source")'
+RUN Rscript --vanilla -e 'install.packages("https://cran.r-project.org/src/contrib/sparsebnUtils_0.0.8.tar.gz", repos=NULL, type="source")'
+RUN Rscript --vanilla -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/ccdrAlgorithm/ccdrAlgorithm_0.0.6.tar.gz", repos=NULL, type="source")'
+RUN Rscript --vanilla -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/sparsebn/sparsebn_0.1.2.tar.gz", repos=NULL, type="source")'
 
-COPY . /app
+# Instalar pacotes R do GitHub
+RUN Rscript --vanilla -e 'library(devtools); install_github("cran/CAM")'
+RUN Rscript --vanilla -e 'library(devtools); install_github("cran/momentchi2")'
+RUN Rscript --vanilla -e 'library(devtools); install_github("Diviyan-Kalainathan/RCIT")'
+RUN Rscript --vanilla -e 'library(devtools); install_github("cran/discretecdAlgorithm")'
+
+# Instalar pacotes R restantes
+RUN Rscript --vanilla -e 'install.packages("discretecdAlgorithm", repos="'$CRAN_MIRROR'", Ncpus=4)'
+
+# Configurar ambiente Python
 WORKDIR /app
 
-# ENV PATH="${PATH}:$HOME/.local/bin"
+# Instalar Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 - && \
+    poetry config virtualenvs.create false
 
-RUN poetry env use python3.9
-RUN poetry lock --no-update
-RUN poetry install
+COPY causal-nest/requirements.txt ./requirements.txt
+COPY LTVHub/LTVHub/requirements.txt ./ltv_requirements.txt
 
-WORKDIR /app
+# Instalar pacotes Python
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r ltv_requirements.txt
+
+    
+# Copiar todo o código
+COPY causal-nest/ ./causal-nest
+COPY LTVHub/LTVHub/ ./LTVHub
 
 CMD ["python3"]
